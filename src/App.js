@@ -1,28 +1,45 @@
 import React, { useEffect, useState } from 'react';
 
+// Assurez-vous que cette URL est bien celle de votre DASHBOARD Render (sans /salaries à la fin)
 const API_URL = "https://djeli-backend.onrender.com";
 
 function App() {
   const [salaries, setSalaries] = useState([]);
+  const [loading, setLoading] = useState(true); // Ajout d'un état de chargement
   const [formData, setFormData] = useState({ nom: '', prenom: '', email: '', poste: '', situation_familiale: 'Celibataire' });
 
-  useEffect(() => { fetchSalaries(); }, []);
-
   const fetchSalaries = async () => {
-    const res = await fetch(`${API_URL}/salaries`);
-    const data = await res.json();
-    setSalaries(data);
+    try {
+      const res = await fetch(`${API_URL}/salaries`);
+      if (!res.ok) throw new Error("Erreur serveur");
+      const data = await res.json();
+      // On vérifie que data est bien un tableau avant de le stocker
+      setSalaries(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Erreur de récupération:", err);
+      setSalaries([]); // Évite que le .map() échoue
+    } finally {
+      setLoading(false);
+    }
   };
+
+  useEffect(() => {
+    fetchSalaries();
+  }, []);
 
   const handleAffilier = async (e) => {
     e.preventDefault();
-    await fetch(`${API_URL}/salaries`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData)
-    });
-    setFormData({ nom: '', prenom: '', email: '', poste: '', situation_familiale: 'Celibataire' });
-    fetchSalaries();
+    try {
+      await fetch(`${API_URL}/salaries`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+      setFormData({ nom: '', prenom: '', email: '', poste: '', situation_familiale: 'Celibataire' });
+      fetchSalaries();
+    } catch (err) {
+      alert("Erreur lors de l'affiliation");
+    }
   };
 
   const handleRadier = async (id) => {
@@ -50,14 +67,16 @@ function App() {
     }
   };
 
+  // Empêche la page blanche pendant le chargement
+  if (loading) return <div style={{padding: '50px', textAlign: 'center'}}>Connexion au serveur Djeli en cours...</div>;
+
   return (
     <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'sans-serif' }}>
       <h1>Gestion Administrative des Salariés</h1>
 
-      {/* FORMULAIRE D'AFFILIATION */}
-      <section style={{ background: '#f4f4f4', padding: '15px', borderRadius: '8px' }}>
+      <section style={{ background: '#f4f4f4', padding: '15px', borderRadius: '8px', marginBottom: '20px' }}>
         <h3>Affilier un nouveau salarié</h3>
-        <form onSubmit={handleAffilier} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+        <form onSubmit={handleAffilier} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
           <input placeholder="Nom" value={formData.nom} onChange={e => setFormData({...formData, nom: e.target.value})} required />
           <input placeholder="Prénom" value={formData.prenom} onChange={e => setFormData({...formData, prenom: e.target.value})} required />
           <input placeholder="Email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} required />
@@ -67,15 +86,14 @@ function App() {
             <option value="Marié">Marié</option>
             <option value="PACS">PACS</option>
           </select>
-          <button type="submit" style={{ background: 'blue', color: 'white' }}>Affilier au contrat</button>
+          <button type="submit" style={{ background: 'blue', color: 'white', border: 'none', cursor: 'pointer' }}>Affilier au contrat</button>
         </form>
       </section>
 
-      {/* LISTE ET ACTIONS */}
-      <h3>Fichier des bénéficiaires à jour</h3>
+      <h3>Fichier des bénéficiaires à jour ({salaries.length})</h3>
       <table border="1" width="100%" style={{ borderCollapse: 'collapse' }}>
         <thead>
-          <tr>
+          <tr style={{background: '#eee'}}>
             <th>Nom & Prénom</th>
             <th>Poste</th>
             <th>Situation Familiale</th>
@@ -85,21 +103,25 @@ function App() {
           </tr>
         </thead>
         <tbody>
-          {salaries.map(s => (
-            <tr key={s.id} style={{ background: s.statut_contrat === 'Radie' ? '#ffebee' : 'white' }}>
-              <td>{s.nom} {s.prenom}</td>
-              <td>{s.poste}</td>
-              <td>{s.situation_familiale}</td>
-              <td>{s.ayants_droit_noms || 'Aucun'}</td>
-              <td><strong>{s.statut_contrat}</strong></td>
-              <td>
-                <button onClick={() => handleUpdateFamille(s.id)}>Maj Famille</button>
-                {s.statut_contrat !== 'Radie' && (
-                  <button onClick={() => handleRadier(s.id)} style={{ color: 'red' }}>Radier</button>
-                )}
-              </td>
-            </tr>
-          ))}
+          {salaries.length > 0 ? (
+            salaries.map(s => (
+              <tr key={s.id} style={{ background: s.statut_contrat === 'Radie' ? '#ffebee' : 'white' }}>
+                <td style={{padding: '10px'}}>{s.nom} {s.prenom}</td>
+                <td>{s.poste}</td>
+                <td>{s.situation_familiale}</td>
+                <td>{s.ayants_droit_noms || 'Aucun'}</td>
+                <td><strong>{s.statut_contrat}</strong></td>
+                <td>
+                  <button onClick={() => handleUpdateFamille(s.id)}>Maj Famille</button>
+                  {s.statut_contrat !== 'Radie' && (
+                    <button onClick={() => handleRadier(s.id)} style={{ color: 'red', marginLeft: '5px' }}>Radier</button>
+                  )}
+                </td>
+              </tr>
+            ))
+          ) : (
+            <tr><td colSpan="6" style={{textAlign: 'center', padding: '20px'}}>Aucun salarié trouvé.</td></tr>
+          )}
         </tbody>
       </table>
     </div>
