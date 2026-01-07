@@ -14,82 +14,98 @@ function App() {
 
   const fetchReports = async () => {
     const res = await fetch(`${API_URL}/reportings/prestataires`);
-    setReports(await res.json());
+    const data = await res.json();
+    setReports(data);
   };
 
   const handlePoliceSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    const data = Object.fromEntries(new FormData(e.target));
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData.entries());
 
-    // Validation des plafonds entièrement modifiables
+    // VALIDATION LOGIQUE DES PLAFONDS
     if (Number(data.plafond_famille) < Number(data.plafond_individuel)) {
-      setError("Le plafond famille ne peut pas être inférieur au plafond individuel.");
+      setError("Erreur : Le plafond FAMILLE doit être supérieur au plafond INDIVIDUEL.");
       return;
     }
 
-    const res = await fetch(`${API_URL}/polices`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(data)
-    });
-    
-    if (res.ok) alert("Police enregistrée !");
-    else setError("Erreur lors de l'enregistrement.");
+    try {
+      const res = await fetch(`${API_URL}/polices`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (res.ok) {
+        alert("Police créée avec succès !");
+        e.target.reset();
+      } else {
+        const err = await res.json();
+        setError(err.error);
+      }
+    } catch (err) { setError("Erreur de connexion au serveur."); }
   };
 
-  const exportExcel = () => {
+  const exportToExcel = () => {
     const ws = XLSX.utils.json_to_sheet(reports);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Reporting_Finance");
-    XLSX.writeFile(wb, "Reporting_Djeli.xlsx");
+    XLSX.utils.book_append_sheet(wb, ws, "Reporting_Financier");
+    XLSX.writeFile(wb, `Djeli_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'Arial' }}>
-      <nav style={{ width: '250px', background: '#2c3e50', color: 'white', padding: '20px' }}>
-        <h2>DJELI SANTÉ</h2>
-        <ul style={{ listStyle: 'none', padding: 0 }}>
-          <li onClick={() => setPage('dashboard')} style={{cursor:'pointer', padding:'10px'}}>Dashboard</li>
-          <li onClick={() => setPage('polices')} style={{cursor:'pointer', padding:'10px'}}>Polices</li>
-          <li onClick={() => setPage('reports')} style={{cursor:'pointer', padding:'10px'}}>Reports</li>
+    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f8f9fa' }}>
+      {/* NAVIGATION */}
+      <nav style={{ width: '250px', backgroundColor: '#2c3e50', color: 'white', padding: '20px' }}>
+        <h2>🛡️ Djeli Santé</h2>
+        <ul style={{ listStyle: 'none', padding: 0, marginTop: '20px' }}>
+          <li onClick={() => setPage('dashboard')} style={{ padding: '10px', cursor: 'pointer' }}>👥 Adhérents</li>
+          <li onClick={() => setPage('polices')} style={{ padding: '10px', cursor: 'pointer' }}>📜 Polices</li>
+          <li onClick={() => setPage('reports')} style={{ padding: '10px', cursor: 'pointer' }}>📊 Reportings</li>
         </ul>
       </nav>
 
-      <main style={{ flex: 1, padding: '30px' }}>
+      {/* CONTENU */}
+      <main style={{ flex: 1, padding: '40px' }}>
         {page === 'polices' && (
           <section>
-            <h1>Configuration Police</h1>
-            {error && <p style={{color:'red'}}>{error}</p>}
-            <form onSubmit={handlePoliceSubmit} style={{display:'grid', gap:'10px', maxWidth:'400px'}}>
-              <input name="nom_police" placeholder="Nom Police" required />
+            <h1>Configuration des Polices (Barème EMCI)</h1>
+            {error && <div style={{ color: 'white', background: '#e74c3c', padding: '10px', marginBottom: '15px' }}>{error}</div>}
+            <form onSubmit={handlePoliceSubmit} style={{ display: 'grid', gap: '15px', maxWidth: '500px' }}>
+              <input name="nom_police" placeholder="Nom de la Police" required />
               <input name="entreprise" placeholder="Entreprise" required />
-              <input name="date_debut" type="date" required />
-              <input name="date_fin" type="date" required />
-              <label>Plafond Individuel (Modifiable)</label>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <input name="date_debut" type="date" required />
+                <input name="date_fin" type="date" required />
+              </div>
+              <label>Plafond Individuel (CFA) :</label>
               <input name="plafond_individuel" type="number" min="0" required />
-              <label>Plafond Famille (Modifiable)</label>
+              <label>Plafond Famille (CFA) :</label>
               <input name="plafond_famille" type="number" min="0" required />
-              <button type="submit" style={{background:'#27ae60', color:'white', padding:'10px'}}>Créer la Police</button>
+              <button type="submit" style={{ background: '#2ecc71', color: 'white', border: 'none', padding: '10px', borderRadius: '5px' }}>
+                Enregistrer la Police
+              </button>
             </form>
           </section>
         )}
 
         {page === 'reports' && (
           <section>
-            <h1>Reporting Financier</h1>
-            <button onClick={exportExcel} style={{marginBottom:'20px'}}>📥 Télécharger Excel</button>
-            <table width="100%" border="1" style={{borderCollapse:'collapse'}}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <h1>Reporting Financier Prestataires</h1>
+              <button onClick={exportToExcel} style={{ background: '#3498db', color: 'white', padding: '10px' }}>📥 Export Excel</button>
+            </div>
+            <table width="100%" style={{ background: 'white', marginTop: '20px', borderCollapse: 'collapse' }}>
               <thead>
-                <tr><th>Prestataire</th><th>Actes</th><th>CA Total</th><th>Part Assurance</th></tr>
+                <tr style={{ background: '#eee' }}><th>Établissement</th><th>Actes</th><th>CA Total</th><th>Part Assurance</th></tr>
               </thead>
               <tbody>
                 {reports.map((r, i) => (
-                  <tr key={i}>
-                    <td>{r.nom_etablissement}</td>
+                  <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
+                    <td style={{ padding: '10px' }}>{r.nom_etablissement}</td>
                     <td>{r.nombre_actes}</td>
-                    <td>{r.ca_total} CFA</td>
-                    <td>{r.total_assurance} CFA</td>
+                    <td>{Number(r.ca_total).toLocaleString()} CFA</td>
+                    <td style={{ color: '#27ae60', fontWeight: 'bold' }}>{Number(r.total_assurance).toLocaleString()} CFA</td>
                   </tr>
                 ))}
               </tbody>
