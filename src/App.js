@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
-const API_URL = "https://djeli-backend-votre-nom.onrender.com";
+const API_URL = "https://djeli-backend.onrender.com";
 
 function App() {
   const [salaries, setSalaries] = useState([]);
