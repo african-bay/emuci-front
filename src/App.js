@@ -1,95 +1,102 @@
 import React, { useEffect, useState } from 'react';
 
-const API_URL = "https://djeli-backend.onrender.com";
+const API_URL = "https://votre-url-render.onrender.com";
 
 function App() {
   const [salaries, setSalaries] = useState([]);
-  const [formData, setFormData] = useState({ nom: '', poste: '', salaire: '' });
-  const [loading, setLoading] = useState(true);
-
-  // 1. Charger les données (READ)
-  const fetchSalaries = async () => {
-    try {
-      const res = await fetch(`${API_URL}/salaries`);
-      const data = await res.json();
-      setSalaries(data);
-      setLoading(false);
-    } catch (err) {
-      console.error("Erreur de chargement:", err);
-    }
-  };
+  const [formData, setFormData] = useState({ nom: '', prenom: '', email: '', poste: '', situation_familiale: 'Celibataire' });
 
   useEffect(() => { fetchSalaries(); }, []);
 
-  // 2. Ajouter un salarié (CREATE)
-  const handleSubmit = async (e) => {
+  const fetchSalaries = async () => {
+    const res = await fetch(`${API_URL}/salaries`);
+    const data = await res.json();
+    setSalaries(data);
+  };
+
+  const handleAffilier = async (e) => {
     e.preventDefault();
-    try {
-      await fetch(`${API_URL}/salaries`, {
-        method: 'POST',
+    await fetch(`${API_URL}/salaries`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(formData)
+    });
+    setFormData({ nom: '', prenom: '', email: '', poste: '', situation_familiale: 'Celibataire' });
+    fetchSalaries();
+  };
+
+  const handleRadier = async (id) => {
+    const dateSortie = prompt("Date de sortie (AAAA-MM-JJ) :");
+    if (dateSortie) {
+      await fetch(`${API_URL}/salaries/${id}/radier`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({ date_sortie: dateSortie })
       });
-      setFormData({ nom: '', poste: '', salaire: '' }); // Reset formulaire
-      fetchSalaries(); // Actualiser la liste
-    } catch (err) {
-      console.error("Erreur d'ajout:", err);
+      fetchSalaries();
     }
   };
 
-  // 3. Supprimer un salarié (DELETE)
-  const deleteSalarie = async (id) => {
-    if (window.confirm("Supprimer ce salarié ?")) {
-      try {
-        await fetch(`${API_URL}/salaries/${id}`, { method: 'DELETE' });
-        fetchSalaries();
-      } catch (err) {
-        console.error("Erreur de suppression:", err);
-      }
+  const handleUpdateFamille = async (id) => {
+    const nouvelleSit = prompt("Nouvelle situation (Mariage, PACS, etc.) :");
+    const ayantsDroit = prompt("Noms des ayants droit (conjoint, enfants) :");
+    if (nouvelleSit) {
+      await fetch(`${API_URL}/salaries/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ situation_familiale: nouvelleSit, ayants_droit_noms: ayantsDroit })
+      });
+      fetchSalaries();
     }
   };
-
-  if (loading) return <div style={styles.center}>Connexion au backend...</div>;
 
   return (
-    <div style={styles.container}>
-      <h1 style={styles.title}>Système de Gestion Djeli</h1>
+    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'sans-serif' }}>
+      <h1>Gestion Administrative des Salariés</h1>
 
-      {/* Formulaire d'ajout */}
-      <form onSubmit={handleSubmit} style={styles.form}>
-        <input 
-          style={styles.input} placeholder="Nom" value={formData.nom}
-          onChange={(e) => setFormData({...formData, nom: e.target.value})} required 
-        />
-        <input 
-          style={styles.input} placeholder="Poste" value={formData.poste}
-          onChange={(e) => setFormData({...formData, poste: e.target.value})} required 
-        />
-        <input 
-          style={styles.input} type="number" placeholder="Salaire" value={formData.salaire}
-          onChange={(e) => setFormData({...formData, salaire: e.target.value})} required 
-        />
-        <button type="submit" style={styles.buttonAdd}>Ajouter</button>
-      </form>
+      {/* FORMULAIRE D'AFFILIATION */}
+      <section style={{ background: '#f4f4f4', padding: '15px', borderRadius: '8px' }}>
+        <h3>Affilier un nouveau salarié</h3>
+        <form onSubmit={handleAffilier} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+          <input placeholder="Nom" value={formData.nom} onChange={e => setFormData({...formData, nom: e.target.value})} required />
+          <input placeholder="Prénom" value={formData.prenom} onChange={e => setFormData({...formData, prenom: e.target.value})} required />
+          <input placeholder="Email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} required />
+          <input placeholder="Poste" value={formData.poste} onChange={e => setFormData({...formData, poste: e.target.value})} />
+          <select value={formData.situation_familiale} onChange={e => setFormData({...formData, situation_familiale: e.target.value})}>
+            <option value="Celibataire">Célibataire</option>
+            <option value="Marié">Marié</option>
+            <option value="PACS">PACS</option>
+          </select>
+          <button type="submit" style={{ background: 'blue', color: 'white' }}>Affilier au contrat</button>
+        </form>
+      </section>
 
-      {/* Tableau des résultats */}
-      <table style={styles.table}>
+      {/* LISTE ET ACTIONS */}
+      <h3>Fichier des bénéficiaires à jour</h3>
+      <table border="1" width="100%" style={{ borderCollapse: 'collapse' }}>
         <thead>
-          <tr style={styles.thead}>
-            <th style={styles.th}>Nom</th>
-            <th style={styles.th}>Poste</th>
-            <th style={styles.th}>Salaire</th>
-            <th style={styles.th}>Actions</th>
+          <tr>
+            <th>Nom & Prénom</th>
+            <th>Poste</th>
+            <th>Situation Familiale</th>
+            <th>Ayants Droit</th>
+            <th>Statut</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          {salaries.map((s) => (
-            <tr key={s.id} style={styles.tr}>
-              <td style={styles.td}>{s.nom}</td>
-              <td style={styles.td}>{s.poste}</td>
-              <td style={styles.td}>{s.salaire} CFA</td>
-              <td style={styles.td}>
-                <button onClick={() => deleteSalarie(s.id)} style={styles.buttonDel}>Supprimer</button>
+          {salaries.map(s => (
+            <tr key={s.id} style={{ background: s.statut_contrat === 'Radie' ? '#ffebee' : 'white' }}>
+              <td>{s.nom} {s.prenom}</td>
+              <td>{s.poste}</td>
+              <td>{s.situation_familiale}</td>
+              <td>{s.ayants_droit_noms || 'Aucun'}</td>
+              <td><strong>{s.statut_contrat}</strong></td>
+              <td>
+                <button onClick={() => handleUpdateFamille(s.id)}>Maj Famille</button>
+                {s.statut_contrat !== 'Radie' && (
+                  <button onClick={() => handleRadier(s.id)} style={{ color: 'red' }}>Radier</button>
+                )}
               </td>
             </tr>
           ))}
@@ -98,18 +105,5 @@ function App() {
     </div>
   );
 }
-
-const styles = {
-  container: { padding: '30px', maxWidth: '900px', margin: '0 auto', fontFamily: 'Segoe UI, sans-serif' },
-  title: { textAlign: 'center', color: '#2c3e50' },
-  form: { display: 'flex', gap: '10px', marginBottom: '30px', background: '#f4f7f6', padding: '20px', borderRadius: '8px' },
-  input: { padding: '10px', flex: 1, border: '1px solid #ddd', borderRadius: '4px' },
-  buttonAdd: { padding: '10px 20px', backgroundColor: '#27ae60', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' },
-  buttonDel: { padding: '5px 10px', backgroundColor: '#e74c3c', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' },
-  table: { width: '100%', borderCollapse: 'collapse' },
-  th: { textAlign: 'left', padding: '15px', borderBottom: '2px solid #34495e' },
-  td: { padding: '15px', borderBottom: '1px solid #eee' },
-  center: { textAlign: 'center', marginTop: '100px', fontSize: '20px' }
-};
 
 export default App;
